@@ -1,25 +1,40 @@
+import numpy as np
+import numba as nb
 from PIL import Image, ImageSequence
 from pathlib import Path
 from tqdm import tqdm
 from docx import Document
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import ImageFormatter
 import cv2
 import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
+# 92 it/s, #parallel 110 it/s
+@nb.njit(parallel=True)
+def remove_background_from_numpy_image(image_array, gray_array, min_gray, max_gray):
+    x_range, y_range = gray_array.shape
+    for x in nb.prange(x_range):
+        for y in nb.prange(y_range):
+            if min_gray <= gray_array[x, y] <= max_gray:
+                image_array[x, y, 3] = 0
+    return image_array
+
+
+# 45 it/s
+# def remove_background_from_numpy_image(image_array, gray_array, min_gray, max_gray):
+#     image_array[(gray_array >= min_gray) & (gray_array <= max_gray)] = 0
+#     return image_array
+
+
 def remove_background_from_image(image: Image, min_gray, max_gray):
     rgba_image = image.convert("RGBA")
-    grayscale_image = rgba_image.convert("L")
-    transparent_image = Image.new("RGBA", rgba_image.size, (0, 0, 0, 0))
-    width, height = rgba_image.size
-    for y in range(height):
-        for x in range(width):
-            pixel = grayscale_image.getpixel((x, y))
-            if min_gray <= pixel <= max_gray:
-                transparent_image.putpixel((x, y), (0, 0, 0, 0))
-            else:
-                transparent_image.putpixel((x, y), rgba_image.getpixel((x, y)))
-    return transparent_image
+    img_array = np.array(rgba_image)
+    gray_array = np.array(rgba_image.convert("L"))
+    img_array = remove_background_from_numpy_image(img_array, gray_array, min_gray, max_gray)
+    return Image.fromarray(img_array, 'RGBA')
 
 
 def remove_background_from_gif(gif_path, output_path, lower_bg_color, upper_bg_color, duration):
@@ -101,8 +116,24 @@ def read_images_and_save_as_docx(images_path: Path):
     doc_pol.save('./ImagesToTesseract/pol.docx')
 
 
+def convert_code_to_formatted_font(code, save_path, transparent_bg: tuple = None, **format_params):
+    """transparent_bg is a tuple of (min_gray, max_gray)"""
+    formatter = ImageFormatter(**format_params)
+    with open(save_path, 'wb') as file:
+        file.write(highlight(code.encode(), PythonLexer(), formatter))
+    if transparent_bg is not None:
+        image = Image.open(save_path)
+        image = remove_background_from_image(image, *transparent_bg)
+        image.save(save_path, quality=95)
+
+
 if __name__ == '__main__':
-    path = Path(
-        r'C:\Users\thejg\Desktop\Studia\BigDataAnalytics2024\Seminars\BoidsFlockingPresentation\graphics\slide3.gif')
-    output = Path(r'C:\Users\thejg\Desktop\Programming\MediaEditor\GIFS\RemovingBackground\flockincorrect4.gif')
-    remove_background_from_gif(path, output, 0, 50, 1000 / 30)
+    gif_path = Path(
+        r'C:\Users\thejg\Desktop\Studia\BigDataAnalytics2024\Seminars\BoidsFlockingPresentation\graphics\slide3gif.gif')
+    output_path = Path(
+        r'C:\Users\thejg\Desktop\Programming\MediaEditor\outputs\GIFS\RemovingBackground\test.gif')
+    gray_scale = (0, 50)
+    # img = Image.open(gif_path)
+    remove_background_from_gif(gif_path, output_path, *gray_scale, 1000 / 30)
+    # img = remove_background_from_image(img, *gray_scale)
+    # img.save(output_path, quality=95)
