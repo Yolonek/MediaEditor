@@ -7,12 +7,13 @@ from docx import Document
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import ImageFormatter
+from matplotlib import pyplot as plt
 import cv2
 import pytesseract
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
-# 92 it/s, #parallel 110 it/s
+# 92 it/s, parallel 110 it/s
 @nb.njit(parallel=True)
 def remove_background_from_numpy_image(image_array, gray_array, min_gray, max_gray):
     x_range, y_range = gray_array.shape
@@ -127,13 +128,24 @@ def convert_code_to_formatted_font(code, save_path, transparent_bg: tuple = None
         image.save(save_path, quality=95)
 
 
+def render_latex_equation(equation, render_path, color='white', font_size=30):
+    figure, axes = plt.subplots(1, 1, figsize=(0.1, 0.1))
+    axes.axis(False)
+    axes.text(0.5, 0.5, f'{equation}', fontsize=font_size,
+              ha='center', va='center', color=color)
+    figure.savefig(render_path, dpi=300, bbox_inches='tight', transparent=True)
+
+
 if __name__ == '__main__':
-    gif_path = Path(
-        r'C:\Users\thejg\Desktop\Studia\BigDataAnalytics2024\Seminars\BoidsFlockingPresentation\graphics\slide3gif.gif')
-    output_path = Path(
-        r'C:\Users\thejg\Desktop\Programming\MediaEditor\outputs\GIFS\RemovingBackground\test.gif')
-    gray_scale = (0, 50)
-    # img = Image.open(gif_path)
-    remove_background_from_gif(gif_path, output_path, *gray_scale, 1000 / 30)
+    # gif_path = Path(
+    #     r'C:\Users\thejg\Desktop\Studia\BigDataAnalytics2024\Seminars\BoidsFlockingPresentation\graphics\slide3gif.gif')
+    # output_path = Path(
+    #     r'C:\Users\thejg\Desktop\Programming\MediaEditor\outputs\GIFS\RemovingBackground\test.gif')
+    # gray_scale = (0, 50)
+    # # img = Image.open(gif_path)
+    # remove_background_from_gif(gif_path, output_path, *gray_scale, 1000 / 30)
     # img = remove_background_from_image(img, *gray_scale)
     # img.save(output_path, quality=95)
+    equation = r'r = \sqrt{(x_1 - x_2)^2 + (y_1 - y_2)^2}'
+    eq_path = Path(r"./outputs/CodeFormatters/eq1.png")
+    render_latex_equation(equation, eq_path)
